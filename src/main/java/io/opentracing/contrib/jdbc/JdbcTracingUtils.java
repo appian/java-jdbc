@@ -19,6 +19,7 @@ import io.opentracing.Tracer;
 import io.opentracing.noop.NoopSpan;
 import io.opentracing.tag.BooleanTag;
 import io.opentracing.tag.StringTag;
+import io.opentracing.tag.IntTag;
 import io.opentracing.tag.Tags;
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +34,7 @@ class JdbcTracingUtils {
    * Opentracing standard tag https://github.com/opentracing/specification/blob/master/semantic_conventions.md
    */
   static final StringTag PEER_ADDRESS = new StringTag("peer.address");
+  static final IntTag PEER_SAMPLING = new IntTag("peer.sampling");
 
   static final BooleanTag SLOW = new BooleanTag("slow");
 
@@ -40,6 +42,7 @@ class JdbcTracingUtils {
    * can be modified by application code
    */
   public static int slowQueryThresholdMs = Integer.getInteger("io.opentracing.contrib.jdbc.slowQueryThresholdMs", 0);
+  public static int fastQueryThresholdMs = Integer.getInteger("io.opentracing.contrib.jdbc.fastQueryThresholdMs", 0);
 
   static Span buildSpan(String operationName,
       String sql,
@@ -83,10 +86,15 @@ class JdbcTracingUtils {
       JdbcTracingUtils.onError(e, span);
       throw e;
     } finally {
-      if (slowQueryThresholdMs > 0 && System.nanoTime() - time > TimeUnit.MILLISECONDS.toNanos(slowQueryThresholdMs)) {
-        SLOW.set(span, true);
+      if (fastQueryThresholdMs > 0 && System.nanoTime() - time < TimeUnit.MILLISECONDS.toNanos(fastQueryThresholdMs)) {
+        PEER_SAMPLING.set(span, 0);
       }
+      else{
+        if (slowQueryThresholdMs > 0 && System.nanoTime() - time > TimeUnit.MILLISECONDS.toNanos(slowQueryThresholdMs)) {
+          SLOW.set(span, true);
+        }
       span.finish();
+      }
     }
   }
 
@@ -110,10 +118,15 @@ class JdbcTracingUtils {
       JdbcTracingUtils.onError(e, span);
       throw e;
     } finally {
-      if (slowQueryThresholdMs > 0 && System.nanoTime() - time > TimeUnit.MILLISECONDS.toNanos(slowQueryThresholdMs)) {
-        SLOW.set(span, true);
+      if (fastQueryThresholdMs > 0 && System.nanoTime() - time < TimeUnit.MILLISECONDS.toNanos(fastQueryThresholdMs)) {
+        PEER_SAMPLING.set(span, 0);
       }
+      else{
+        if (slowQueryThresholdMs > 0 && System.nanoTime() - time > TimeUnit.MILLISECONDS.toNanos(slowQueryThresholdMs)) {
+          SLOW.set(span, true);
+        }
       span.finish();
+      }
     }
   }
 
